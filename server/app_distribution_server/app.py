@@ -2,6 +2,7 @@ from copy import copy
 
 from fastapi import APIRouter, FastAPI, Response
 from fastapi import HTTPException as FastApiHTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.requests import Request
 from fastapi.responses import PlainTextResponse
 from fastapi.routing import APIRoute
@@ -10,6 +11,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app_distribution_server.config import (
     APP_TITLE,
+    CORS_ALLOWED_ORIGINS,
     APP_VERSION,
 )
 from app_distribution_server.errors import (
@@ -24,6 +26,16 @@ app = FastAPI(
     summary="Simple, self-hosted iOS/Android app distribution server.",
     description="[Source code, issues and documentation](https://github.com/significa/app-distribution-server)",
 )
+
+if CORS_ALLOWED_ORIGINS:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=CORS_ALLOWED_ORIGINS.split(","),
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 

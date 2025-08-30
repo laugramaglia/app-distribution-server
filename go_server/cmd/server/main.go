@@ -12,6 +12,24 @@ import (
 	httpSwagger "github.com/swaggo/http-swagger"
 )
 
+// corsMiddleware adds CORS headers to the response.
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Allow requests from any origin. For production, you might want to restrict this.
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Auth-Token")
+
+		// If it's a preflight request, respond with 200 OK
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 // @title App Distribution API
 // @version 1.0
 // @description This is a sample server for distributing mobile applications.
@@ -35,19 +53,23 @@ func main() {
 	service := application.NewAppService(repo)
 	handlers := interfaces.NewAppHandlers(service)
 
-	http.HandleFunc("/api/apps", handlers.AppsHandler)
-	http.HandleFunc("/api/apps/upload", handlers.UploadHandler)
-	http.HandleFunc("/api/apps/", func(w http.ResponseWriter, r *http.Request) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/apps", handlers.AppsHandler)
+	mux.HandleFunc("/api/apps/upload", handlers.UploadHandler)
+	mux.HandleFunc("/api/apps/", func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, "/versions") {
 			handlers.GetAllAppVersionsHandler(w, r)
 		} else {
 			handlers.GetLatestAppVersionHandler(w, r)
 		}
 	})
-	http.HandleFunc("/swagger/", httpSwagger.WrapHandler)
+	mux.HandleFunc("/swagger/", httpSwagger.WrapHandler)
+
+	// Wrap the mux with the CORS middleware
+	corsHandler := corsMiddleware(mux)
 
 	log.Println("Starting server on :8080")
-	if err := http.ListenAndServe(":8080", nil); err != nil {
+	if err := http.ListenAndServe(":8080", corsHandler); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
 }

@@ -13,6 +13,9 @@ if not UPLOADS_SECRET_AUTH_TOKEN:
         " For security reasons override it with the 'UPLOADS_SECRET_AUTH_TOKEN' env var.",
     )
 
+# Comma-separated list of allowed origins for CORS
+CORS_ALLOWED_ORIGINS = os.getenv("CORS_ALLOWED_ORIGINS", "")
+
 APP_BASE_URL = os.getenv("APP_BASE_URL", "http://localhost:8000")
 APP_VERSION = os.getenv("APP_VERSION") or "0.0.1-development"
 APP_TITLE = os.getenv("APP_TITLE") or "iOS/Android app distribution server"
