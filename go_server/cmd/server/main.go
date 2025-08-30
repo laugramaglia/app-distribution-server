@@ -45,11 +45,10 @@ func corsMiddleware(next http.Handler) http.Handler {
 // @host localhost:8080
 // @BasePath /api
 func main() {
-	if err := infrastructure.InitStorage(); err != nil {
-		log.Fatalf("Failed to initialize storage: %v", err)
+	repo, err := infrastructure.NewFileAppRepository()
+	if err != nil {
+		log.Fatalf("Failed to initialize repository: %v", err)
 	}
-
-	repo := infrastructure.NewFileAppRepository()
 	service := application.NewAppService(repo)
 	handlers := interfaces.NewAppHandlers(service)
 
