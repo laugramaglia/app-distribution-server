@@ -1,0 +1,11 @@
+venv
+.env
+
+.gitignore
+Dockerfile
+
+docs
+images
+
+uploads
+builds

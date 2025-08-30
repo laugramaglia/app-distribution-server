@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  app-distribution-server:
+    build: .
+    container_name: app-distribution-server
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./uploads:/uploads
+    environment:
+      # IMPORTANT: For security, change this to a secure, secret token!
+      - UPLOADS_SECRET_AUTH_TOKEN=secret
+      # This ensures uploads are stored in the mounted volume at /uploads, as described in the README.
+      - STORAGE_URL=osfs:///uploads
+      - APP_BASE_URL=http://localhost:8000
+      # Optional: Uncomment and set your own values
+      # - APP_TITLE=My App Distribution
+      # - LOGO_URL=https://example.com/logo.png
+    restart: unless-stopped
