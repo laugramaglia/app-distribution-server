@@ -40,6 +40,7 @@ type DownloadResponse struct {
 // @Failure 500 {string} string "Failed to get apps"
 // @Router /apps [get]
 func (h *AppHandlers) AppsHandler(w http.ResponseWriter, r *http.Request) {
+	log.Println("AppsHandler called")
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -75,6 +76,7 @@ func (h *AppHandlers) AppsHandler(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {string} string "Internal Server Error"
 // @Router /apps/upload [post]
 func (h *AppHandlers) UploadHandler(w http.ResponseWriter, r *http.Request) {
+	log.Println("UploadHandler called")
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -219,6 +221,7 @@ func (h *AppHandlers) UploadHandler(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {string} string "Internal Server Error"
 // @Router /apps/{bundle_id} [get]
 func (h *AppHandlers) GetLatestAppVersionHandler(w http.ResponseWriter, r *http.Request) {
+	log.Println("GetLatestAppVersionHandler called")
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -272,6 +275,7 @@ func (h *AppHandlers) GetLatestAppVersionHandler(w http.ResponseWriter, r *http.
 // @Failure 500 {string} string "Internal Server Error"
 // @Router /apps/{bundle_id}/versions [get]
 func (h *AppHandlers) GetAllAppVersionsHandler(w http.ResponseWriter, r *http.Request) {
+	log.Println("GetAllAppVersionsHandler called")
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
