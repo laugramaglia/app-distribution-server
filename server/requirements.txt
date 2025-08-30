@@ -3,6 +3,6 @@ fastapi
 uvicorn[standard]
 python-multipart
 jinja2
-pyfilesystem2
+fs
 androguard
 pyqrcode
