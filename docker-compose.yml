@@ -3,7 +3,8 @@ version: '3.8'
 services:
   # The backend API server
   api:
-    build: .
+    build:
+      context: ./server
     container_name: app-distribution-server
     ports:
       - "8000:8000"
@@ -24,9 +25,9 @@ services:
   web:
     build:
       context: ./web_app
-      # args:
+      args:
         # You can pass the API URL to your frontend build like this:
-        # - API_URL=http://localhost:8000
+        - API_URL=http://localhost:8000
     container_name: app-distribution-web-app
     ports:
       - "8080:80"

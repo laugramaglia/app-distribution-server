@@ -9,7 +9,7 @@ WORKDIR /usr/src/app
 # This example shows how you might expose it for a Vite-based app.
 # You may need to adjust the ENV variable name for your specific framework.
 ARG API_URL
-ENV VITE_API_URL=${API_URL}
+ENV NEXT_PUBLIC_API_URL=${API_URL}
 
 # Copy package.json and the lock file to leverage Docker's layer caching.
 COPY package*.json ./
@@ -24,18 +24,19 @@ COPY . .
 RUN npm run build
 
 # --- Production Stage ---
-# Use a lightweight Nginx image to serve the static files.
-FROM nginx:1.25-alpine
+# Use a lightweight Node.js image to run the app.
+FROM node:20-alpine
 
-# Copy the custom Nginx configuration.
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+WORKDIR /usr/src/app
 
-# Copy the built static files from the build stage.
-# The build output is often in a 'dist' or 'build' directory.
-COPY --from=build /usr/src/app/dist /usr/share/nginx/html
+# Copy the built app from the build stage
+COPY --from=build /usr/src/app/.next ./.next
+COPY --from=build /usr/src/app/public ./public
+COPY --from=build /usr/src/app/package.json ./package.json
+COPY --from=build /usr/src/app/next.config.ts ./next.config.ts
 
-# Expose port 80 for Nginx.
-EXPOSE 80
+# Expose port 3000 for the Next.js app. The docker-compose will map it to 8080.
+EXPOSE 3000
 
-# The default Nginx command starts the server.
-CMD ["nginx", "-g", "daemon off;"]
+# The command to start the app.
+CMD ["npm", "start"]
