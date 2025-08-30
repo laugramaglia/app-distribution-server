@@ -1,6 +1,7 @@
-package main
+package infrastructure
 
 import (
+	"app-distribution-server-go/internal/domain"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -24,7 +25,7 @@ type IndexEntry struct {
 }
 
 // initStorage initializes the storage directories.
-func initStorage() error {
+func InitStorage() error {
 	for _, dir := range []string{storageDir, filepath.Join(storageDir, indexesDir), filepath.Join(storageDir, indexesDir, byBundleIDDir)} {
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			return fmt.Errorf("failed to create directory %s: %w", dir, err)
@@ -34,7 +35,7 @@ func initStorage() error {
 }
 
 // getBuildInfo loads the build metadata from a file.
-func getBuildInfo(uploadID string) (*BuildInfo, error) {
+func GetBuildInfo(uploadID string) (*domain.BuildInfo, error) {
 	filePath := filepath.Join(storageDir, uploadID, buildInfoFileName)
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -45,7 +46,7 @@ func getBuildInfo(uploadID string) (*BuildInfo, error) {
 	}
 	defer file.Close()
 
-	var info BuildInfo
+	var info domain.BuildInfo
 	decoder := json.NewDecoder(file)
 	if err := decoder.Decode(&info); err != nil {
 		return nil, fmt.Errorf("failed to decode build info: %w", err)
@@ -88,16 +89,16 @@ func getLatestUploadIDForBundleID(bundleID string) (string, error) {
 	return index[0].UploadID, nil
 }
 
-// getAllVersions returns all versions for a given bundle ID.
-func getAllVersions(bundleID string) ([]*BuildInfo, error) {
+// GetAllVersions returns all versions for a given bundle ID.
+func GetAllVersions(bundleID string) ([]*domain.BuildInfo, error) {
 	index, err := getIndexEntriesForBundleID(bundleID)
 	if err != nil {
 		return nil, err
 	}
 
-	var builds []*BuildInfo
+	var builds []*domain.BuildInfo
 	for _, entry := range index {
-		build, err := getBuildInfo(entry.UploadID)
+		build, err := GetBuildInfo(entry.UploadID)
 		if err != nil {
 			// Log the error but continue, so one corrupted build doesn't fail the whole request
 			fmt.Printf("Error getting build info for %s: %v\n", entry.UploadID, err)
@@ -109,18 +110,18 @@ func getAllVersions(bundleID string) ([]*BuildInfo, error) {
 	return builds, nil
 }
 
-// getLatestVersion returns the latest version for a given bundle ID.
-func getLatestVersion(bundleID string) (*BuildInfo, error) {
+// GetLatestVersion returns the latest version for a given bundle ID.
+func GetLatestVersion(bundleID string) (*domain.BuildInfo, error) {
 	uploadID, err := getLatestUploadIDForBundleID(bundleID)
 	if err != nil {
 		return nil, err
 	}
-	return getBuildInfo(uploadID)
+	return GetBuildInfo(uploadID)
 }
 
-// getAllApps returns the latest version of all apps.
-func getAllApps() ([]*BuildInfo, error) {
-	allApps := make([]*BuildInfo, 0)
+// GetAllApps returns the latest version of all apps.
+func GetAllApps() ([]*domain.BuildInfo, error) {
+	allApps := make([]*domain.BuildInfo, 0)
 	bundleIDFiles, err := os.ReadDir(filepath.Join(storageDir, indexesDir, byBundleIDDir))
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -135,7 +136,7 @@ func getAllApps() ([]*BuildInfo, error) {
 		}
 		bundleID := file.Name()
 		bundleID = bundleID[:len(bundleID)-len(".json")]
-		build, err := getLatestVersion(bundleID)
+		build, err := GetLatestVersion(bundleID)
 		if err != nil {
 			fmt.Printf("Error getting latest version for %s: %v\n", bundleID, err)
 			continue
@@ -147,7 +148,7 @@ func getAllApps() ([]*BuildInfo, error) {
 }
 
 // saveBuildInfo saves the build metadata to a file.
-func saveBuildInfo(info *BuildInfo) error {
+func saveBuildInfo(info *domain.BuildInfo) error {
 	uploadDir := filepath.Join(storageDir, info.UploadID)
 	if err := os.MkdirAll(uploadDir, 0755); err != nil {
 		return fmt.Errorf("failed to create upload directory: %w", err)
@@ -170,10 +171,10 @@ func saveBuildInfo(info *BuildInfo) error {
 }
 
 // saveAppFile saves the application file.
-func saveAppFile(info *BuildInfo, appFile io.Reader) error {
+func saveAppFile(info *domain.BuildInfo, appFile io.Reader) error {
 	uploadDir := filepath.Join(storageDir, info.UploadID)
 	fileName := "app.ipa"
-	if info.Platform == Android {
+	if info.Platform == domain.Android {
 		fileName = "app.apk"
 	}
 	filePath := filepath.Join(uploadDir, fileName)
@@ -193,7 +194,7 @@ func saveAppFile(info *BuildInfo, appFile io.Reader) error {
 }
 
 // updateIndex adds a new entry to the bundle ID index.
-func updateIndex(info *BuildInfo) error {
+func updateIndex(info *domain.BuildInfo) error {
 	indexFilePath := filepath.Join(storageDir, indexesDir, byBundleIDDir, fmt.Sprintf("%s.json", info.BundleID))
 
 	var index []IndexEntry
@@ -238,7 +239,7 @@ func updateIndex(info *BuildInfo) error {
 }
 
 // SaveUpload saves the build info, app file, and updates the index.
-func SaveUpload(info *BuildInfo, appFile io.Reader) error {
+func SaveUpload(info *domain.BuildInfo, appFile io.Reader) error {
 	if err := saveBuildInfo(info); err != nil {
 		return err
 	}
