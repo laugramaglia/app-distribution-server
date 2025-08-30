@@ -120,9 +120,12 @@ func getLatestVersion(bundleID string) (*BuildInfo, error) {
 
 // getAllApps returns the latest version of all apps.
 func getAllApps() ([]*BuildInfo, error) {
-	var allApps []*BuildInfo
+	allApps := make([]*BuildInfo, 0)
 	bundleIDFiles, err := os.ReadDir(filepath.Join(storageDir, indexesDir, byBundleIDDir))
 	if err != nil {
+		if os.IsNotExist(err) {
+			return allApps, nil // Return empty slice if directory doesn't exist
+		}
 		return nil, fmt.Errorf("failed to read bundle ID index directory: %w", err)
 	}
 
