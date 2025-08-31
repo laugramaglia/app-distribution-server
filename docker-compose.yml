@@ -13,7 +13,7 @@ services:
         - API_URL=http://go-api:8080
     container_name: app-distribution-web-app
     ports:
-      - "8080:3000"
+      - "3000:3000"
     # The web app depends on the API being available
     depends_on:
       - go-api
@@ -27,9 +27,11 @@ services:
       context: ./go_server
     container_name: app-distribution-go-server
     ports:
-      - "8081:8080"
+      - "8080:8080"
     volumes:
       - ./go_uploads:/storage
+    environment:
+      - API_HOST=localhost:8081
     restart: unless-stopped
     networks:
       - app-net
