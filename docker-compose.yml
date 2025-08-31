@@ -1,40 +1,25 @@
-services:
-  # The backend API server
-  api:
-    build:
-      context: ./server
-    container_name: app-distribution-server
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./uploads:/uploads
-    environment:
-      # IMPORTANT: For security, change this to a secure, secret token!
-      - UPLOADS_SECRET_AUTH_TOKEN=secret
-      # This ensures uploads are stored in the mounted volume at /uploads, as described in the README.
-      - STORAGE_URL=osfs:///uploads
-      # Allow requests from the web app's origin to fix CORS issues.
-      - CORS_ALLOWED_ORIGINS=http://localhost:8080
-      - APP_BASE_URL=http://localhost:8000
-      # Optional: Uncomment and set your own values
-      # - APP_TITLE=My App Distribution
-      # - LOGO_URL=https://example.com/logo.png
-    restart: unless-stopped
+networks:
+  app-net:
+    driver: bridge
 
+services:
   # The frontend web application
   web:
     build:
       context: ./web_app
       args:
         # You can pass the API URL to your frontend build like this:
-        - API_URL=http://localhost:8000
+        # This URL is used by the browser, so it must be accessible from the host.
+        - API_URL=http://go-api:8080
     container_name: app-distribution-web-app
     ports:
       - "8080:3000"
     # The web app depends on the API being available
     depends_on:
-      - api
+      - go-api
     restart: unless-stopped
+    networks:
+      - app-net
 
   # The Go backend API server
   go-api:
@@ -46,3 +31,5 @@ services:
     volumes:
       - ./go_uploads:/storage
     restart: unless-stopped
+    networks:
+      - app-net

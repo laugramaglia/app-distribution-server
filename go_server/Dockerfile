@@ -28,8 +28,6 @@ FROM gcr.io/distroless/static-debian12
 
 # Copy the compiled binary from the build stage.
 COPY --from=build /server /server
-# Copy the generated swagger documentation from the build stage.
-COPY --from=build /src/docs /docs
 
 # Expose the port the application will run on.
 EXPOSE 8080

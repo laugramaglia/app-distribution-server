@@ -1,6 +1,7 @@
 package main
 
 import (
+	_ "app-distribution-server-go/docs" // Import the generated docs
 	"app-distribution-server-go/internal/application"
 	"app-distribution-server-go/internal/infrastructure"
 	"app-distribution-server-go/internal/interfaces"
