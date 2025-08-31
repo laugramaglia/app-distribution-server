@@ -11,9 +11,18 @@ import (
 	httpSwagger "github.com/swaggo/http-swagger"
 )
 
+// loggingMiddleware logs the incoming requests.
+func loggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("Received request: %s %s", r.Method, r.URL.Path)
+		next.ServeHTTP(w, r)
+	})
+}
+
 // corsMiddleware adds CORS headers to the response.
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("CORS middleware: Origin=%s", r.Header.Get("Origin"))
 		// Allow requests from any origin. For production, you might want to restrict this.
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
@@ -21,6 +30,7 @@ func corsMiddleware(next http.Handler) http.Handler {
 
 		// If it's a preflight request, respond with 200 OK
 		if r.Method == http.MethodOptions {
+			log.Printf("CORS preflight request: Method=%s, Headers=%s", r.Header.Get("Access-Control-Request-Method"), r.Header.Get("Access-Control-Request-Headers"))
 			w.WriteHeader(http.StatusOK)
 			return
 		}
@@ -63,11 +73,11 @@ func main() {
 	})
 	mux.HandleFunc("/swagger/", httpSwagger.WrapHandler)
 
-	// Wrap the mux with the CORS middleware
-	corsHandler := corsMiddleware(mux)
+	// Wrap the mux with the middlewares
+	handler := loggingMiddleware(corsMiddleware(mux))
 
 	log.Println("Starting server on :8080")
-	if err := http.ListenAndServe(":8080", corsHandler); err != nil {
+	if err := http.ListenAndServe(":8080", handler); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
 }
