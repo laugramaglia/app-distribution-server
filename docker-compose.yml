@@ -1,29 +1,33 @@
 x-env-variables: &default-env
   POSTGRES_USER: user
   POSTGRES_PASSWORD: password
+  POSTGRES_DB: app_distribution
+  DATABASE_URL: "postgres://user:password@db:5432/app_distribution?sslmode=disable"
+
+
 
 networks:
   app-net:
     driver: bridge
 
 services:
-  # The frontend web application
-  web:
-    build:
-      context: ./web_app
-      args:
-        # You can pass the API URL to your frontend build like this:
-        # This URL is used by the browser, so it must be accessible from the host.
-        - API_URL=http://go-api:8080
-    container_name: app-distribution-web-app
-    ports:
-      - "3000:3000"
-    # The web app depends on the API being available
-    depends_on:
-      - go-api
-    restart: unless-stopped
-    networks:
-      - app-net
+  # # The frontend web application
+  # web:
+  #   build:
+  #     context: ./web_app
+  #     args:
+  #       # You can pass the API URL to your frontend build like this:
+  #       # This URL is used by the browser, so it must be accessible from the host.
+  #       - API_URL=http://go-api:8080
+  #   container_name: app-distribution-web-app
+  #   ports:
+  #     - "3000:3000"
+  #   # The web app depends on the API being available
+  #   depends_on:
+  #     - go-api
+  #   restart: unless-stopped
+  #   networks:
+  #     - app-net
 
   # The Go backend API server
   go-api:
@@ -36,13 +40,12 @@ services:
       - ./go_uploads:/storage
     environment:
       <<: *default-env
-      POSTGRES_DB: app_distribution
-      DATABASE_URL: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?sslmode=disable"
     restart: unless-stopped
     networks:
       - app-net
     depends_on:
-      - db
+      db:
+        condition: service_healthy
 
   db:
     image: postgres:13-alpine
@@ -51,10 +54,14 @@ services:
       - "5432:5432"
     environment:
       <<: *default-env
-      POSTGRES_DB: app_distribution
     volumes:
       - postgres-data:/var/lib/postgresql/data
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d app_distribution"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - app-net
 
