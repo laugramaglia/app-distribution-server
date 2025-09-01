@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	"regexp"
+
 	"github.com/google/uuid"
 	"github.com/nao1215/deapk/apk"
 	"github.com/skip2/go-qrcode"
@@ -226,12 +228,13 @@ func (h *AppHandlers) GetLatestAppVersionHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
-	parts := strings.Split(r.URL.Path, "/")
-	if len(parts) < 4 {
+	latestRegex := regexp.MustCompile(`/api/apps/([^/]+)`)
+	matches := latestRegex.FindStringSubmatch(r.URL.Path)
+	if len(matches) < 2 {
 		http.Error(w, "Invalid URL", http.StatusBadRequest)
 		return
 	}
-	bundleID := parts[3]
+	bundleID := matches[1]
 
 	build, err := h.service.GetLatestVersion(bundleID)
 	if err != nil {
@@ -240,7 +243,7 @@ func (h *AppHandlers) GetLatestAppVersionHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
-	downloadURL := "http://" + r.Host + "/api/apps/" + bundleID + "/download" // This should point to the actual file download, which is not implemented yet. For now, it's a placeholder.
+	downloadURL := "http://" + r.Host + "/api/apps/" + bundleID + "/" + build.Version + "/" + build.BuildNumber + "/download"
 	var png []byte
 	png, err = qrcode.Encode(downloadURL, qrcode.Medium, 256)
 	if err != nil {
@@ -269,7 +272,7 @@ func (h *AppHandlers) GetLatestAppVersionHandler(w http.ResponseWriter, r *http.
 // @Tags apps
 // @Produce  json
 // @Param   bundle_id path string true "Bundle ID of the app"
-// @Success 200 {array} domain.BuildInfo
+// @Success 200 {array} DownloadResponse
 // @Failure 400 {string} string "Invalid URL"
 // @Failure 500 {string} string "Internal Server Error"
 // @Router /apps/{bundle_id}/versions [get]
@@ -280,12 +283,13 @@ func (h *AppHandlers) GetAllAppVersionsHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	parts := strings.Split(r.URL.Path, "/")
-	if len(parts) < 5 {
+	versionsRegex := regexp.MustCompile(`/api/apps/([^/]+)/versions`)
+	matches := versionsRegex.FindStringSubmatch(r.URL.Path)
+	if len(matches) < 2 {
 		http.Error(w, "Invalid URL", http.StatusBadRequest)
 		return
 	}
-	bundleID := parts[3]
+	bundleID := matches[1]
 
 	versions, err := h.service.GetAllVersions(bundleID)
 	if err != nil {
@@ -294,9 +298,80 @@ func (h *AppHandlers) GetAllAppVersionsHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	var response []DownloadResponse
+	for _, version := range versions {
+		downloadURL := "http://" + r.Host + "/api/apps/" + bundleID + "/" + version.Version + "/" + version.BuildNumber + "/download"
+		var png []byte
+		png, err = qrcode.Encode(downloadURL, qrcode.Medium, 256)
+		if err != nil {
+			http.Error(w, "Failed to generate QR code", http.StatusInternalServerError)
+			log.Printf("Error generating QR code: %v", err)
+			return
+		}
+
+		qrCodeBase64 := base64.StdEncoding.EncodeToString(png)
+
+		response = append(response, DownloadResponse{
+			BuildInfo: *version,
+			QRCode:    qrCodeBase64,
+		})
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(versions); err != nil {
+	if err := json.NewEncoder(w).Encode(response); err != nil {
 		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 		log.Printf("Error encoding versions: %v", err)
 	}
+}
+
+// DownloadHandler godoc
+// @Summary Download an app
+// @Description Download a specific version of an app.
+// @Tags apps
+// @Produce  application/octet-stream
+// @Param   bundle_id path string true "Bundle ID of the app"
+// @Param   version path string true "Version of the app"
+// @Param   build_number path string true "Build number of the app"
+// @Success 200 {file} file "Application file"
+// @Failure 400 {string} string "Invalid URL"
+// @Failure 404 {string} string "Not Found"
+// @Failure 500 {string} string "Internal Server Error"
+// @Router /apps/{bundle_id}/{version}/{build_number}/download [get]
+func (h *AppHandlers) DownloadHandler(w http.ResponseWriter, r *http.Request) {
+	log.Println("DownloadHandler called")
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	downloadRegex := regexp.MustCompile(`/api/apps/([^/]+)/([^/]+)/([^/]+)/download`)
+	matches := downloadRegex.FindStringSubmatch(r.URL.Path)
+	if len(matches) < 4 {
+		http.Error(w, "Invalid URL", http.StatusBadRequest)
+		return
+	}
+	bundleID := matches[1]
+	version := matches[2]
+	buildNumber := matches[3]
+
+	build, err := h.service.GetBuild(bundleID, version, buildNumber)
+	if err != nil {
+		http.Error(w, "Failed to get build", http.StatusInternalServerError)
+		log.Printf("Error getting build for %s, %s, %s: %v", bundleID, version, buildNumber, err)
+		return
+	}
+
+	fileName := "app.ipa"
+	if build.Platform == domain.Android {
+		fileName = "app.apk"
+	}
+	filePath := filepath.Join("go_uploads", bundleID, version, buildNumber, fileName)
+
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		http.Error(w, "File not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Disposition", "attachment; filename="+fileName)
+	http.ServeFile(w, r, filePath)
 }

@@ -7,6 +7,7 @@ import (
 	"app-distribution-server-go/internal/interfaces"
 	"log"
 	"net/http"
+	"regexp"
 	"strings"
 
 	httpSwagger "github.com/swaggo/http-swagger"
@@ -77,10 +78,18 @@ func main() {
 	mux.HandleFunc("/api/apps", handlers.AppsHandler)
 	mux.HandleFunc("/api/apps/upload", handlers.UploadHandler)
 	mux.HandleFunc("/api/apps/", func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasSuffix(r.URL.Path, "/versions") {
+		downloadRegex := regexp.MustCompile(`/api/apps/([^/]+)/([^/]+)/([^/]+)/download`)
+		versionsRegex := regexp.MustCompile(`/api/apps/([^/]+)/versions`)
+		latestRegex := regexp.MustCompile(`/api/apps/([^/]+)`)
+
+		if downloadRegex.MatchString(r.URL.Path) {
+			handlers.DownloadHandler(w, r)
+		} else if versionsRegex.MatchString(r.URL.Path) {
 			handlers.GetAllAppVersionsHandler(w, r)
-		} else {
+		} else if latestRegex.MatchString(r.URL.Path) {
 			handlers.GetLatestAppVersionHandler(w, r)
+		} else {
+			http.NotFound(w, r)
 		}
 	})
 	mux.HandleFunc("/swagger/", httpSwagger.WrapHandler)
