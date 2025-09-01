@@ -1,5 +1,9 @@
 package infrastructure
 
+const (
+	StorageDir = "go_uploads"
+)
+
 import (
 	"app-distribution-server-go/internal/domain"
 	"database/sql"
@@ -90,6 +94,26 @@ func (r *PostgresAppRepository) GetLatestVersion(bundleID string) (*domain.Build
 	return &build, nil
 }
 
+func (r *PostgresAppRepository) GetBuild(bundleID, version, buildNumber string) (*domain.BuildInfo, error) {
+	query := `
+		SELECT upload_id, bundle_id, version, build_number, title, icon, description, file_size, created_at, platform
+		FROM builds
+		WHERE bundle_id = $1 AND version = $2 AND build_number = $3
+		LIMIT 1
+	`
+	row := r.db.QueryRow(query, bundleID, version, buildNumber)
+
+	var build domain.BuildInfo
+	if err := row.Scan(&build.UploadID, &build.BundleID, &build.Version, &build.BuildNumber, &build.Title, &build.Icon, &build.Description, &build.FileSize, &build.CreatedAt, &build.Platform); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("no build found for bundle ID %s, version %s, build number %s", bundleID, version, buildNumber)
+		}
+		return nil, fmt.Errorf("failed to scan build row: %w", err)
+	}
+
+	return &build, nil
+}
+
 func (r *PostgresAppRepository) SaveUpload(info *domain.BuildInfo, appFile io.Reader) error {
 	tx, err := r.db.Begin()
 	if err != nil {
@@ -116,7 +140,7 @@ func (r *PostgresAppRepository) SaveUpload(info *domain.BuildInfo, appFile io.Re
 
 // saveAppFile saves the application file.
 func (r *PostgresAppRepository) saveAppFile(info *domain.BuildInfo, appFile io.Reader) error {
-	uploadDir := filepath.Join(StorageDir, info.BundleID, info.UploadID)
+	uploadDir := filepath.Join(StorageDir, info.BundleID, info.Version, info.BuildNumber)
 	if err := os.MkdirAll(uploadDir, 0755); err != nil {
 		return fmt.Errorf("failed to create upload directory: %w", err)
 	}

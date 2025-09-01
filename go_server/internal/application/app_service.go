@@ -9,6 +9,7 @@ type AppRepository interface {
 	GetAllApps() ([]*domain.BuildInfo, error)
 	GetAllVersions(bundleID string) ([]*domain.BuildInfo, error)
 	GetLatestVersion(bundleID string) (*domain.BuildInfo, error)
+	GetBuild(bundleID, version, buildNumber string) (*domain.BuildInfo, error)
 	SaveUpload(info *domain.BuildInfo, appFile io.Reader) error
 }
 
@@ -30,6 +31,10 @@ func (s *AppService) GetLatestVersion(bundleID string) (*domain.BuildInfo, error
 
 func (s *AppService) GetAllVersions(bundleID string) ([]*domain.BuildInfo, error) {
 	return s.repo.GetAllVersions(bundleID)
+}
+
+func (s *AppService) GetBuild(bundleID, version, buildNumber string) (*domain.BuildInfo, error) {
+	return s.repo.GetBuild(bundleID, version, buildNumber)
 }
 
 func (s *AppService) SaveUpload(info *domain.BuildInfo, appFile io.Reader) error {
