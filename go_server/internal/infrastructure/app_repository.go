@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	storageDir        = "storage"
+	StorageDir        = "storage"
 	indexesDir        = "_indexes"
 	byBundleIDDir     = "by_bundle_id"
 	buildInfoFileName = "build_info.json"
@@ -28,7 +28,7 @@ type FileAppRepository struct{}
 
 // NewFileAppRepository initializes the storage and returns a new FileAppRepository.
 func NewFileAppRepository() (*FileAppRepository, error) {
-	for _, dir := range []string{storageDir, filepath.Join(storageDir, indexesDir), filepath.Join(storageDir, indexesDir, byBundleIDDir)} {
+	for _, dir := range []string{StorageDir, filepath.Join(StorageDir, indexesDir), filepath.Join(StorageDir, indexesDir, byBundleIDDir)} {
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			return nil, fmt.Errorf("failed to create directory %s: %w", dir, err)
 		}
@@ -38,7 +38,7 @@ func NewFileAppRepository() (*FileAppRepository, error) {
 
 func (r *FileAppRepository) GetAllApps() ([]*domain.BuildInfo, error) {
 	allApps := make([]*domain.BuildInfo, 0)
-	bundleIDFiles, err := os.ReadDir(filepath.Join(storageDir, indexesDir, byBundleIDDir))
+	bundleIDFiles, err := os.ReadDir(filepath.Join(StorageDir, indexesDir, byBundleIDDir))
 	if err != nil {
 		if os.IsNotExist(err) {
 			return allApps, nil // Return empty slice if directory doesn't exist
@@ -106,7 +106,7 @@ func (r *FileAppRepository) SaveUpload(info *domain.BuildInfo, appFile io.Reader
 
 // getBuildInfo loads the build metadata from a file.
 func (r *FileAppRepository) getBuildInfo(uploadID string) (*domain.BuildInfo, error) {
-	filePath := filepath.Join(storageDir, uploadID, buildInfoFileName)
+	filePath := filepath.Join(StorageDir, uploadID, buildInfoFileName)
 	file, err := os.Open(filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -127,7 +127,7 @@ func (r *FileAppRepository) getBuildInfo(uploadID string) (*domain.BuildInfo, er
 
 // getIndexEntriesForBundleID returns the index entries for a given bundle ID.
 func (r *FileAppRepository) getIndexEntriesForBundleID(bundleID string) ([]IndexEntry, error) {
-	indexFilePath := filepath.Join(storageDir, indexesDir, byBundleIDDir, fmt.Sprintf("%s.json", bundleID))
+	indexFilePath := filepath.Join(StorageDir, indexesDir, byBundleIDDir, fmt.Sprintf("%s.json", bundleID))
 
 	file, err := os.Open(indexFilePath)
 	if err != nil {
@@ -161,7 +161,7 @@ func (r *FileAppRepository) getLatestUploadIDForBundleID(bundleID string) (strin
 
 // saveBuildInfo saves the build metadata to a file.
 func (r *FileAppRepository) saveBuildInfo(info *domain.BuildInfo) error {
-	uploadDir := filepath.Join(storageDir, info.UploadID)
+	uploadDir := filepath.Join(StorageDir, info.UploadID)
 	if err := os.MkdirAll(uploadDir, 0755); err != nil {
 		return fmt.Errorf("failed to create upload directory: %w", err)
 	}
@@ -184,7 +184,7 @@ func (r *FileAppRepository) saveBuildInfo(info *domain.BuildInfo) error {
 
 // saveAppFile saves the application file.
 func (r *FileAppRepository) saveAppFile(info *domain.BuildInfo, appFile io.Reader) error {
-	uploadDir := filepath.Join(storageDir, info.UploadID)
+	uploadDir := filepath.Join(StorageDir, info.UploadID)
 	fileName := "app.ipa"
 	if info.Platform == domain.Android {
 		fileName = "app.apk"
@@ -207,7 +207,7 @@ func (r *FileAppRepository) saveAppFile(info *domain.BuildInfo, appFile io.Reade
 
 // updateIndex adds a new entry to the bundle ID index.
 func (r *FileAppRepository) updateIndex(info *domain.BuildInfo) error {
-	indexFilePath := filepath.Join(storageDir, indexesDir, byBundleIDDir, fmt.Sprintf("%s.json", info.BundleID))
+	indexFilePath := filepath.Join(StorageDir, indexesDir, byBundleIDDir, fmt.Sprintf("%s.json", info.BundleID))
 
 	var index []IndexEntry
 	file, err := os.Open(indexFilePath)

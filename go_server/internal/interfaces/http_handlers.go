@@ -31,6 +31,11 @@ type DownloadResponse struct {
 	QRCode string `json:"qr_code"`
 }
 
+// BuildInfoJSON represents the structure of the build_info.json file.
+type BuildInfoJSON struct {
+	BuildNumber string `json:"build_number"`
+}
+
 // AppsHandler godoc
 // @Summary List all apps
 // @Description Get a list of all available applications.
@@ -67,6 +72,7 @@ func (h *AppHandlers) AppsHandler(w http.ResponseWriter, r *http.Request) {
 // @Accept  multipart/form-data
 // @Produce  json
 // @Param   app_file formData file true  "Application file (.apk or .ipa)"
+// @Param   build_info formData file false "Build info file (build_info.json)"
 // @Param   bundle_id formData string false "Bundle ID (for .ipa)"
 // @Param   version formData string false "Version (for .ipa)"
 // @Param   build_number formData string false "Build Number (for .ipa)"
@@ -97,26 +103,36 @@ func (h *AppHandlers) UploadHandler(w http.ResponseWriter, r *http.Request) {
 
 	var platform domain.Platform
 	var buildInfo domain.BuildInfo
+	var buildNumber string
+
+	// Check for build_info.json
+	buildInfoFile, _, err := r.FormFile("build_info")
+	if err == nil {
+		defer buildInfoFile.Close()
+		var buildInfoJSON BuildInfoJSON
+		if err := json.NewDecoder(buildInfoFile).Decode(&buildInfoJSON); err != nil {
+			http.Error(w, "Failed to parse build_info.json", http.StatusBadRequest)
+			return
+		}
+		buildNumber = buildInfoJSON.BuildNumber
+	}
 
 	if strings.HasSuffix(handler.Filename, ".apk") {
 		platform = domain.Android
 
-		// Create a temporary file to store the uploaded apk
 		tmpfile, err := os.CreateTemp("", "upload-*.apk")
 		if err != nil {
 			http.Error(w, "Failed to create temporary file", http.StatusInternalServerError)
 			return
 		}
-		defer os.Remove(tmpfile.Name()) // clean up
+		defer os.Remove(tmpfile.Name())
 
-		// Copy the uploaded file to the temporary file
 		fileSize, err := io.Copy(tmpfile, file)
 		if err != nil {
 			http.Error(w, "Failed to save temporary file", http.StatusInternalServerError)
 			return
 		}
 
-		// Parse the APK file
 		apkParser := apk.NewAPK(tmpfile.Name())
 		if err := apkParser.Parse(); err != nil {
 			http.Error(w, "Failed to parse apk file", http.StatusInternalServerError)
@@ -124,18 +140,21 @@ func (h *AppHandlers) UploadHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		if buildNumber == "" {
+			buildNumber = "0" // Default if not provided
+		}
+
 		buildInfo = domain.BuildInfo{
 			UploadID:    uuid.New().String(),
 			BundleID:    apkParser.Package.Basic.PackageName,
 			Version:     apkParser.Package.Basic.Version,
-			BuildNumber: "0", // This library does not seem to extract the build number.
+			BuildNumber: buildNumber,
 			Title:       apkParser.Package.Basic.ApplicationName,
 			FileSize:    fileSize,
 			CreatedAt:   time.Now(),
 			Platform:    platform,
 		}
 
-		// Reset the file reader to the beginning
 		if _, err := tmpfile.Seek(0, 0); err != nil {
 			http.Error(w, "Failed to seek temporary file", http.StatusInternalServerError)
 			return
@@ -150,9 +169,12 @@ func (h *AppHandlers) UploadHandler(w http.ResponseWriter, r *http.Request) {
 	} else if strings.HasSuffix(handler.Filename, ".ipa") {
 		platform = domain.IOS
 
+		if buildNumber == "" {
+			buildNumber = r.FormValue("build_number")
+		}
+
 		bundleID := r.FormValue("bundle_id")
 		version := r.FormValue("version")
-		buildNumber := r.FormValue("build_number")
 		title := r.FormValue("title")
 
 		if bundleID == "" || version == "" || buildNumber == "" || title == "" {
@@ -160,13 +182,12 @@ func (h *AppHandlers) UploadHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Create a temporary file to get the file size
 		tmpfile, err := os.CreateTemp("", "upload-*.ipa")
 		if err != nil {
 			http.Error(w, "Failed to create temporary file", http.StatusInternalServerError)
 			return
 		}
-		defer os.Remove(tmpfile.Name()) // clean up
+		defer os.Remove(tmpfile.Name())
 
 		fileSize, err := io.Copy(tmpfile, file)
 		if err != nil {
@@ -185,12 +206,10 @@ func (h *AppHandlers) UploadHandler(w http.ResponseWriter, r *http.Request) {
 			Platform:    platform,
 		}
 
-		// Reset the file reader to the beginning
 		if _, err := tmpfile.Seek(0, 0); err != nil {
 			http.Error(w, "Failed to seek temporary file", http.StatusInternalServerError)
 			return
 		}
-
 
 		if err := h.service.SaveUpload(&buildInfo, tmpfile); err != nil {
 			http.Error(w, "Failed to save upload", http.StatusInternalServerError)

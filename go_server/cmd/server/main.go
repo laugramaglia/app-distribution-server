@@ -55,10 +55,21 @@ func corsMiddleware(next http.Handler) http.Handler {
 // @host localhost:8080
 // @BasePath /api
 func main() {
-	repo, err := infrastructure.NewFileAppRepository()
+	db, err := infrastructure.NewDBConnection()
+	if err != nil {
+		log.Fatalf("Failed to connect to database: %v", err)
+	}
+	defer db.Close()
+
+	if err := infrastructure.MigrateDB(db); err != nil {
+		log.Fatalf("Failed to migrate database: %v", err)
+	}
+
+	repo, err := infrastructure.NewPostgresAppRepository(db)
 	if err != nil {
 		log.Fatalf("Failed to initialize repository: %v", err)
 	}
+
 	service := application.NewAppService(repo)
 	handlers := interfaces.NewAppHandlers(service)
 
